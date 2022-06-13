@@ -3,7 +3,7 @@ import json
 import os
 import decimal
 
-SFN_ARN = 'STEP_FUNCTION_ARN'
+SFN_ARN = os.environ.get('STF_ARN')
 
 sfn = boto3.client('stepfunctions')
 

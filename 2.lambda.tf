@@ -58,4 +58,12 @@ resource "aws_lambda_function" "api_handler_lambda" {
   role          = aws_iam_role.iam_for_lambda.arn
   handler = "lambda-apihandler.handler"
   runtime = "python3.8"
+
+  environment {
+    variables = {
+      STF_ARN = aws_sfn_state_machine.sfn_state_machine.arn
+    }
+  }
+
+  depends_on = [ aws_sfn_state_machine.sfn_state_machine ]
 }
