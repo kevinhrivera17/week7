@@ -19,8 +19,7 @@ data "archive_file" "zip-api-handler" {
 resource "aws_iam_role" "iam_for_lambda" {
   name = "iam_for_lambda"
 
-  assume_role_policy = <<EOF
-{
+  assume_role_policy = jsonencode({
   "Version": "2012-10-17",
   "Statement": [
     {
@@ -32,32 +31,64 @@ resource "aws_iam_role" "iam_for_lambda" {
       "Sid": ""
     }
   ]
+})
 }
-EOF
+
+resource "aws_iam_policy" "policy" {
+  name        = "lambda-policy"
+  path        = "/"
+  description = "My Lambda!"
+
+  # Terraform's "jsonencode" function converts a
+  # Terraform expression result to valid JSON syntax.
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Action = [
+          "ses:*",
+          "states:*",
+          "sns:*"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      }
+    ]
+  })
 }
+
 
 resource "aws_lambda_function" "email_lambda" {
   filename      = "zipfiles/email.zip"
   function_name = "email"
   role          = aws_iam_role.iam_for_lambda.arn
-  handler = "lambda-email.handler"
-  runtime = "python3.8"
+  handler       = "email.lambda_handler"
+  runtime       = "python3.8"
 }
 
 resource "aws_lambda_function" "sms_lambda" {
   filename      = "zipfiles/sms.zip"
   function_name = "sms"
   role          = aws_iam_role.iam_for_lambda.arn
-  handler = "lambda-sms.handler"
-  runtime = "python3.8"
+  handler       = "sms.lambda_handler"
+  runtime       = "python3.8"
 }
 
 resource "aws_lambda_function" "api_handler_lambda" {
   filename      = "zipfiles/api-handler.zip"
   function_name = "api-handler"
   role          = aws_iam_role.iam_for_lambda.arn
-  handler = "lambda-apihandler.handler"
-  runtime = "python3.8"
+  handler       = "api-handler.lambda_handler"
+  runtime       = "python3.8"
 
   environment {
     variables = {
@@ -65,5 +96,11 @@ resource "aws_lambda_function" "api_handler_lambda" {
     }
   }
 
-  depends_on = [ aws_sfn_state_machine.sfn_state_machine ]
+  depends_on = [aws_sfn_state_machine.sfn_state_machine]
+}
+
+resource "aws_iam_policy_attachment" "lambda-attachment" {
+  name       = "lambda-attachment"
+  roles      = [aws_iam_role.iam_for_lambda.name]
+  policy_arn = aws_iam_policy.policy.arn
 }
